@@ -1,12 +1,13 @@
 import numpy as np
 from scipy.optimize import minimize
-import synthetic_data_utils, optimization_utils
+import synthetic_data_utils
+import optimization_synthetic_utils
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 freqs = np.logspace(np.log10(40), 6, 201) #40Hz to 1MHZ in 201 points
-optimizer_obj = optimization_utils.Optimizer() #Optimizer object
+optimizer_obj = optimization_synthetic_utils.Optimizer() #Optimizer object
 
 #target parameters
 target_params = np.array([0., 1e6, 1., 300 * optimizer_obj.k, optimizer_obj.k, 1.]) #target polynomial parameters
@@ -24,13 +25,22 @@ opt_data = synthetic_data_utils.SyntheticData(unscaled_opt_vals.ravel(), freqs) 
 print(f'[Optimizer @ optimized norm] cost opt val = {opt.fun}')
 print(f'[Optimizer @ optimized norm] params opt val = {unscaled_opt_vals.ravel()}')
 
+#parameters direct in the equation
+w = 2*np.pi*freqs #Hz to rad/s
+jw = 1j*w #real to complex
+order = int(len(unscaled_opt_vals)/2) #order of the polynomial
+poly = np.stack([np.ones_like(w), jw, jw ** 2]).T #array with [1, jw, jw^2]
+num = poly@unscaled_opt_vals[3:]
+den = poly@unscaled_opt_vals[:3]
+H = num/den
+
 plt.figure(1)
 plt.suptitle("||x-x'||")
 plt.subplot(1,2,1)
 leg = []
 plt.loglog(target_data.freqs, target_data.magnitude_unscaled)
 leg.append('Target values')
-plt.loglog(opt_data.freqs, opt_data.magnitude_unscaled, linestyle='dotted')
+plt.loglog(opt_data.freqs, np.abs(H), linestyle='dotted')
 leg.append('Optimized values')
 plt.title("Magnitude Response")
 plt.xlabel('Frequency [Hz]')
@@ -42,7 +52,7 @@ plt.subplot(1,2,2)
 leg = []
 plt.semilogx(target_data.freqs, target_data.phase_unscaled)
 leg.append('Target values')
-plt.semilogx(opt_data.freqs, opt_data.phase_unscaled, linestyle='dotted')
+plt.semilogx(opt_data.freqs, np.angle(H), linestyle='dotted')
 leg.append('Optimized values')
 plt.title("Phase Response")
 plt.xlabel('Frequency [Hz]')
